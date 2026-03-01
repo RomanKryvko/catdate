@@ -46,6 +46,16 @@ def get_ordinal_indicator(n: int) -> str:
 def get_date_string(dt: datetime) -> str:
     return f"{months[dt.month-1]} {dt.day}{get_ordinal_indicator(dt.day)}"
 
+def draw_outlined_text(draw: ImageDraw.ImageDraw, xy: tuple[float, float], text: str, main: str, secondary: str, font: ImageFont.FreeTypeFont, anchor: str, align: str, outline: int = 1):
+    x = xy[0]
+    y = xy[1]
+    draw.text((x+outline, y), text, fill=secondary, font=font, anchor=anchor, align=align)
+    draw.text((x-outline, y), text, fill=secondary, font=font, anchor=anchor, align=align)
+    draw.text((x, y+outline), text, fill=secondary, font=font, anchor=anchor, align=align)
+    draw.text((x, y-outline), text, fill=secondary, font=font, anchor=anchor, align=align)
+
+    draw.text(xy, text, fill=main, font=font, anchor=anchor, align=align)
+
 def put_text_over_image() -> bytes:
     today = datetime.now()
     tomorrow = today + timedelta(days=1)
@@ -59,8 +69,8 @@ def put_text_over_image() -> bytes:
 
         today_str = f"Damn, it's {get_date_string(today)} already?!"
         tomorrow_str = f"{get_date_string(tomorrow)}? Fuck everything"
-        draw.text((img.width/2, font_size/2+20), today_str, fill='black', font=font, anchor='ms')
-        draw.multiline_text((img.width/2, font_size*(text_size_to_height_ratio-1)-20), "What's next?\n" + tomorrow_str, fill='black', font=font, align='center', anchor='ms')
+        draw_outlined_text(draw=draw, xy=(img.width/2, font_size/2+20), text=today_str, main='black', secondary='white', font=font, anchor='ms', align='center')
+        draw_outlined_text(draw=draw, xy=(img.width/2, font_size*(text_size_to_height_ratio-1)-20), text="What's next?\n" + tomorrow_str, main='black', secondary='white', font=font, anchor='ms', align='center')
 
         byte_arr = io.BytesIO()
         img.save(byte_arr, format='PNG')
