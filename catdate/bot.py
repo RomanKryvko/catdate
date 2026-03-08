@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 import io
 import logging
+import math
 import os
 import sys
 from telegram import Update
@@ -56,6 +57,25 @@ def draw_outlined_text(draw: ImageDraw.ImageDraw, xy: tuple[float, float], text:
 
     draw.text(xy, text, fill=main, font=font, anchor=anchor, align=align)
 
+
+#FIXME: preserve words
+def split_lines(text: str, textlength: int, maxlength: int) -> str:
+    if textlength < maxlength:
+        return text
+
+    ratio = textlength / maxlength
+
+    parts = []
+    start = 0
+    for i in range(1, math.ceil(ratio)):
+        idx = math.floor(i * len(text) / ratio)
+        parts.append(text[start:idx])
+        start = idx
+
+    parts.append(text[start:])
+    return "\n".join(parts)
+
+
 def put_text_over_image() -> bytes:
     today = datetime.now()
     tomorrow = today + timedelta(days=1)
@@ -68,9 +88,9 @@ def put_text_over_image() -> bytes:
         draw = ImageDraw.Draw(img)
 
         today_str = f"Damn, it's {get_date_string(today)} already?!"
-        tomorrow_str = f"{get_date_string(tomorrow)}? Fuck everything"
+        tomorrow_str = f"What's next?\n{get_date_string(tomorrow)}? Fuck everything"
         draw_outlined_text(draw=draw, xy=(img.width/2, font_size/2+20), text=today_str, main='black', secondary='white', font=font, anchor='ms', align='center')
-        draw_outlined_text(draw=draw, xy=(img.width/2, font_size*(text_size_to_height_ratio-1)-20), text="What's next?\n" + tomorrow_str, main='black', secondary='white', font=font, anchor='ms', align='center')
+        draw_outlined_text(draw=draw, xy=(img.width/2, font_size*(text_size_to_height_ratio-1)-20), text=tomorrow_str, main='black', secondary='white', font=font, anchor='ms', align='center')
 
         byte_arr = io.BytesIO()
         img.save(byte_arr, format='PNG')
@@ -91,4 +111,5 @@ if __name__ == '__main__':
         application.add_handler(h)
 
     application.run_polling()
+
 
