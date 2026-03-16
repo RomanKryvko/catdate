@@ -1,5 +1,5 @@
 import unittest
-from catdate.bot import split_line_by_words, split_lines
+from catdate.util.string_util import split_line_by_words, split_lines
 
 class TestStringUtil(unittest.TestCase):
     def test_splits_lines(self):
