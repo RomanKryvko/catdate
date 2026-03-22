@@ -43,7 +43,7 @@ def draw_top_and_bottom_text(img: ImageFile.ImageFile, toptext: str, bottomtext:
 
     longest = toptext if len(toptext) > len(bottomtext) else bottomtext
 
-    BOX_OFFSET = 0.05
+    BOX_OFFSET = 0.08
     x_offset = img.width * BOX_OFFSET
     y_offset = img.height * BOX_OFFSET
     box_height = img.height / 6 + y_offset
@@ -56,12 +56,9 @@ def draw_top_and_bottom_text(img: ImageFile.ImageFile, toptext: str, bottomtext:
     toptext = split_line_by_words(toptext, int(font.getlength(toptext)), int(box_width))
     bottomtext = split_line_by_words(bottomtext, int(font.getlength(bottomtext)), int(box_width))
 
-    asc, desc = font.getmetrics()
-    line_height = (asc + desc)
-
     text_x = img.width / 2
-    toptext_y = line_height
-    bottomtext_y = img.height - (bottomtext.count("\n") * line_height)
+    toptext_y = y_offset
+    bottomtext_y = img.height - y_offset
 
     draw_outlined_text(draw=draw, xy=(text_x, toptext_y), text=toptext, main='black', secondary='white', font=font, anchor='ms', align='center')
     draw_outlined_text(draw=draw, xy=(text_x, bottomtext_y), text=bottomtext, main='black', secondary='white', font=font, anchor='ms', align='center')
