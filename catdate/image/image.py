@@ -2,11 +2,12 @@ import io
 from datetime import datetime, timedelta
 import logging
 from PIL import Image, ImageDraw, ImageFont, ImageFile
+from catdate.image.font_manager import get_font
 from catdate.util.string_util import get_date_string, split_line_by_words
 
 logger = logging.getLogger(__name__)
 
-def draw_outlined_text(draw: ImageDraw.ImageDraw, xy: tuple[float, float], text: str, main: str, secondary: str, font: ImageFont.FreeTypeFont, anchor: str, align: str, outline: int = 1):
+def draw_outlined_text(draw: ImageDraw.ImageDraw, xy: tuple[float, float], text: str, main: str, secondary: str, font: ImageFont.FreeTypeFont | ImageFont.ImageFont, anchor: str, align: str, outline: int = 1):
     x, y = xy
     draw.text((x+outline, y), text, fill=secondary, font=font, anchor=anchor, align=align)
     draw.text((x-outline, y), text, fill=secondary, font=font, anchor=anchor, align=align)
@@ -16,12 +17,12 @@ def draw_outlined_text(draw: ImageDraw.ImageDraw, xy: tuple[float, float], text:
     draw.text(xy, text, fill=main, font=font, anchor=anchor, align=align)
 
 
-def find_max_font_size(draw: ImageDraw.ImageDraw, text: str, font_path: str, box_width: float, box_height: float, min_size: int = 10, max_size: int = 200):
+def find_max_font_size(draw: ImageDraw.ImageDraw, text: str, family: str, style: str, box_width: float, box_height: float, min_size: int = 10, max_size: int = 200):
     best = min_size
     i = 0
     while min_size < max_size:
         mid = (min_size + max_size) // 2
-        font = ImageFont.truetype(font_path, mid)
+        font = get_font(family, style, mid)
 
         _, _, w, _ = draw.multiline_textbbox((0, 0), text, font)
         wrapped = split_line_by_words(text, int(w), int(box_width))
@@ -38,7 +39,7 @@ def find_max_font_size(draw: ImageDraw.ImageDraw, text: str, font_path: str, box
     return best
 
 
-def draw_top_and_bottom_text(img: ImageFile.ImageFile, toptext: str, bottomtext: str):
+def draw_top_and_bottom_text(img: ImageFile.ImageFile, family: str, style: str, toptext: str, bottomtext: str):
     draw = ImageDraw.Draw(img)
 
     longest = toptext if len(toptext) > len(bottomtext) else bottomtext
@@ -49,10 +50,9 @@ def draw_top_and_bottom_text(img: ImageFile.ImageFile, toptext: str, bottomtext:
     box_height = img.height / 6 + y_offset
     box_width = img.width - 2 * x_offset
 
-    font_file = '/usr/share/fonts/noto/NotoSans-Bold.ttf'
-    font_size = find_max_font_size(draw, longest, font_file, box_width, box_height)
+    font_size = find_max_font_size(draw, longest, family, style, box_width, box_height)
 
-    font = ImageFont.truetype(font_file, font_size)
+    font = get_font(family, style, font_size)
     toptext = split_line_by_words(toptext, int(font.getlength(toptext)), int(box_width))
     bottomtext = split_line_by_words(bottomtext, int(font.getlength(bottomtext)), int(box_width))
 
@@ -71,7 +71,7 @@ def put_text_over_image() -> bytes:
     with Image.open('assets/cat.jpg') as img:
         today_str = f"Damn, it's {get_date_string(today)} already?!"
         tomorrow_str = f"What's next?\n{get_date_string(tomorrow)}? Fuck everything"
-        draw_top_and_bottom_text(img, today_str, tomorrow_str)
+        draw_top_and_bottom_text(img, "noto", "bold", today_str, tomorrow_str)
 
         byte_arr = io.BytesIO()
         img.save(byte_arr, format='PNG')
