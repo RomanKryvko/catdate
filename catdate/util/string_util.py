@@ -27,7 +27,7 @@ months = [
 ]
 
 def get_date_string(dt: datetime) -> str:
-    return f"{months[dt.month-1]} {dt.day}{get_ordinal_indicator(dt.day)}"
+    return f"{months[dt.month-1]} {dt.day}{get_ordinal_indicator(dt.day % 10)}"
 
 
 def split_lines(text: str, char_to_px: float) -> str:
