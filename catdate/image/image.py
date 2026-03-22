@@ -1,8 +1,10 @@
 import io
 from datetime import datetime, timedelta
-from math import sqrt
+import logging
 from PIL import Image, ImageDraw, ImageFont, ImageFile
 from catdate.util.string_util import get_date_string, split_line_by_words
+
+logger = logging.getLogger(__name__)
 
 def draw_outlined_text(draw: ImageDraw.ImageDraw, xy: tuple[float, float], text: str, main: str, secondary: str, font: ImageFont.FreeTypeFont, anchor: str, align: str, outline: int = 1):
     x, y = xy
@@ -12,6 +14,28 @@ def draw_outlined_text(draw: ImageDraw.ImageDraw, xy: tuple[float, float], text:
     draw.text((x, y-outline), text, fill=secondary, font=font, anchor=anchor, align=align)
 
     draw.text(xy, text, fill=main, font=font, anchor=anchor, align=align)
+
+
+def find_max_font_size(draw: ImageDraw.ImageDraw, text: str, font_path: str, box_width: float, box_height: float, min_size: int = 10, max_size: int = 200):
+    best = min_size
+    i = 0
+    while min_size < max_size:
+        mid = (min_size + max_size) // 2
+        font = ImageFont.truetype(font_path, mid)
+
+        _, _, w, _ = draw.multiline_textbbox((0, 0), text, font)
+        wrapped = split_line_by_words(text, int(w), int(box_width))
+        _, _, w, h = draw.multiline_textbbox((0, 0), wrapped, font)
+
+        if w <= box_width and h <= box_height:
+            best = mid
+            min_size = mid + 1
+        else:
+            max_size = mid - 1
+        i += 1
+
+    logging.info(f"Computed font size {best} in {i} iterations.")
+    return best
 
 
 def draw_top_and_bottom_text(img: ImageFile.ImageFile, toptext: str, bottomtext: str):
@@ -25,20 +49,10 @@ def draw_top_and_bottom_text(img: ImageFile.ImageFile, toptext: str, bottomtext:
     box_height = img.height / 6 + y_offset
     box_width = img.width - 2 * x_offset
 
-    font_size = sqrt(box_height * box_width / len(longest))
     font_file = '/usr/share/fonts/noto/NotoSans-Bold.ttf'
+    font_size = find_max_font_size(draw, longest, font_file, box_width, box_height)
+
     font = ImageFont.truetype(font_file, font_size)
-    if font.getlength(longest) > box_width:
-        text = longest
-        _, _, right, bottom =  draw.multiline_textbbox((0, 0), text, font)
-
-        while (right > box_width or bottom > box_height) and font.size > 0:
-            split_text = split_line_by_words(text, int(right), int(box_width))
-            _, _, right, bottom =  draw.multiline_textbbox((0, 0), split_text, font)
-            font_size -= 1
-            font = ImageFont.truetype(font_file, font_size)
-        font = ImageFont.truetype(font_file, font_size)
-
     toptext = split_line_by_words(toptext, int(font.getlength(toptext)), int(box_width))
     bottomtext = split_line_by_words(bottomtext, int(font.getlength(bottomtext)), int(box_width))
 
