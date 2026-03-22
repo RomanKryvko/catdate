@@ -42,7 +42,7 @@ def split_lines(text: str, char_to_px: float) -> str:
     return "\n".join(parts)
 
 
-def split_line_by_words(text: str, textlength: int, maxlength: int) -> str:
+def split_line_by_words(text: str, textlength: int, maxlength: int, separators: str = " \n") -> str:
     if textlength < maxlength:
         return text
 
@@ -57,19 +57,19 @@ def split_line_by_words(text: str, textlength: int, maxlength: int) -> str:
             parts.append(text[prev:])
             break
 
-        if text[start_idx] == " ":
+        if text[start_idx] in separators:
             parts.append(text[prev:start_idx])
             prev = start_idx + 1
             continue
 
-        space_left = text.rfind(" ", prev, start_idx)
+        space_left = min([text.rfind(s, prev, start_idx) for s in separators])
 
         if space_left != -1:
             parts.append(text[prev:space_left])
             prev = space_left + 1
             continue
 
-        space_right = text.find(" ", start_idx)
+        space_right = max([text.find(s, start_idx) for s in separators])
 
         if space_right == -1:
             parts.append(text[prev:])
