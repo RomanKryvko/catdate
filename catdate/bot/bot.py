@@ -3,6 +3,7 @@ import logging
 from telegram import Chat, ChatMemberUpdated, InlineKeyboardButton, InlineKeyboardMarkup, Update, ChatMember
 from telegram.ext import ApplicationBuilder, CallbackQueryHandler, ChatMemberHandler, ContextTypes, CommandHandler
 from catdate.image.image import put_text_over_image
+from catdate.storage import user_repository, db
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -58,9 +59,9 @@ async def track_chats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cause = update.effective_user.id
     if chat.type == Chat.CHANNEL:
         if is_member and not was_member:
-            context.bot_data.setdefault("users", {}).setdefault(cause, set()).add(chat.id)
+            user_repository.add_user_chat(cause, chat.id)
         elif was_member and not is_member:
-            context.bot_data.setdefault("users", {}).setdefault(cause, set()).discard(chat.id)
+            user_repository.remove_user_chat(cause, chat.id)
 
 
 class MenuState(int, Enum):
@@ -116,7 +117,7 @@ inline_menu = Menu()
 async def fetch_chat_data(user_id: int, context: ContextTypes.DEFAULT_TYPE) -> dict:
     chat_data = dict()
     try:
-        for chat in context.bot_data["users"][user_id]:
+        for chat in user_repository.get_chats_by_user(user_id):
             chat_info = await context.bot.get_chat(chat)
             chat_data[chat] = chat_info.title
     except KeyError:
@@ -170,6 +171,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 def run_bot(token: str):
+    db.init()
     application = ApplicationBuilder().token(token).build()
     handlers = [
         CommandHandler('start', start),
