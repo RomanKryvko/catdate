@@ -1,6 +1,6 @@
 import logging
-from telegram import Chat, ChatMemberUpdated, Update, ChatMember
-from telegram.ext import ApplicationBuilder, ChatMemberHandler, ContextTypes, CommandHandler
+from telegram import Chat, ChatMemberUpdated, InlineKeyboardButton, InlineKeyboardMarkup, Update, ChatMember
+from telegram.ext import ApplicationBuilder, CallbackQueryHandler, ChatMemberHandler, ContextTypes, CommandHandler
 from catdate.image.image import put_text_over_image
 
 logging.basicConfig(
@@ -58,11 +58,42 @@ async def track_chats(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.bot_data.setdefault("users", {}).setdefault(cause, set()).discard(chat.id)
 
 
+async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+
+    chat_data = dict()
+    try:
+        for chat in context.bot_data["users"][user_id]:
+            chat_info = await context.bot.get_chat(chat)
+            chat_data[chat] = chat_info.title
+    except KeyError:
+        await update.message.reply_text("You are not an administrator in any known chats.")
+        return
+
+    await update.message.reply_text("Choose a chat:", reply_markup=main_menu_keyboard(chat_data))
+
+
+def main_menu_keyboard(chats: dict) -> InlineKeyboardMarkup:
+    keyboard = []
+    for id, name in chats.items():
+        keyboard.append([InlineKeyboardButton(name, callback_data=id)])
+    return InlineKeyboardMarkup(keyboard)
+
+
+async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text(text=f"You picked {query.data}")
+    context.drop_callback_data(query)
+
+
 def run_bot(token: str):
     application = ApplicationBuilder().token(token).build()
     handlers = [
         CommandHandler('start', start),
         CommandHandler('img', image),
+        CommandHandler('menu', menu),
+        CallbackQueryHandler(handle),
         ChatMemberHandler(track_chats),
     ]
     for h in handlers:
