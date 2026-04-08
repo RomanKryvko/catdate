@@ -1,9 +1,10 @@
-from enum import Enum
 import logging
-from telegram import Chat, ChatMemberUpdated, InlineKeyboardButton, InlineKeyboardMarkup, Update, ChatMember
+from telegram import Chat, ChatMemberUpdated, Update, ChatMember
 from telegram.ext import ApplicationBuilder, CallbackQueryHandler, ChatMemberHandler, ContextTypes, CommandHandler
 from catdate.image.image import put_text_over_image
 from catdate.storage import user_repository, db
+from catdate.bot.menu import Menu, MenuState
+from catdate.storage.conversation_repository import get_menu_state
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -64,110 +65,21 @@ async def track_chats(update: Update, context: ContextTypes.DEFAULT_TYPE):
             user_repository.remove_user_chat(cause, chat.id)
 
 
-class MenuState(int, Enum):
-    SELECT_CHAT = 1
-    SELECT_ACTION = 2
-
-
-class CallbackKey(str, Enum):
-    GO_BACK = 'go_back'
-    SCHEDULE = 'schedule'
-    ENABLE_REPLY = 'enable_reply'
-    POST_NOW = 'post_now'
-
-
-class Menu:
-    def __init__(self):
-        self._state = MenuState.SELECT_CHAT
-        self._chat_id = None
-
-    @property
-    def state(self) -> MenuState:
-        return self._state
-
-    @state.setter
-    def state(self, value: MenuState):
-        self._state = value
-
-    @property
-    def chat_id(self) -> int | None:
-        return self._chat_id
-
-    @chat_id.setter
-    def chat_id(self, value: int):
-        self._chat_id = value
-
-    def render(self, chat_data: dict = dict()) -> InlineKeyboardMarkup:
-        if self._state == MenuState.SELECT_CHAT:
-            keyboard = []
-            for id, name in chat_data.items():
-                keyboard.append([InlineKeyboardButton(name, callback_data=id)])
-            return InlineKeyboardMarkup(keyboard)
-        elif self._state == MenuState.SELECT_ACTION:
-            keyboard = [[InlineKeyboardButton("Go back", callback_data=CallbackKey.GO_BACK)],
-                        [InlineKeyboardButton("Schedule", callback_data=CallbackKey.SCHEDULE)],
-                        [InlineKeyboardButton("Enable replies", callback_data=CallbackKey.ENABLE_REPLY)],
-                        [InlineKeyboardButton("Post now", callback_data=CallbackKey.POST_NOW)]]
-            return InlineKeyboardMarkup(keyboard)
-        raise ValueError(f"State {self._state} is not supported.")
-
-
-inline_menu = Menu()
-
-async def fetch_chat_data(user_id: int, context: ContextTypes.DEFAULT_TYPE) -> dict:
-    chat_data = dict()
-    try:
-        for chat in user_repository.get_chats_by_user(user_id):
-            chat_info = await context.bot.get_chat(chat)
-            chat_data[chat] = chat_info.title
-    except KeyError:
-        pass
-    return chat_data
-
-
 async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-
-    chat_data = await fetch_chat_data(user_id, context)
-    if not chat_data:
-        await update.message.reply_text("You are not an administrator in any known chats.")
-        return
-
-    await update.message.reply_text("Choose a chat:", reply_markup=inline_menu.render(chat_data))
+    await Menu().menu_entrypoint(update, context)
 
 
 async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    if query is None:
+    if not update.effective_chat:
         return
 
-    await query.answer()
-    data = query.data
-    if data is None:
-        return
+    state_tuple = get_menu_state(update.effective_chat.id)
+    menu = Menu()
+    if state_tuple:
+        menu_state, menu_chat_id = state_tuple
+        menu = Menu(MenuState(menu_state), menu_chat_id)
 
-    if inline_menu.state == MenuState.SELECT_CHAT:
-        inline_menu.chat_id = int(data)
-        inline_menu.state = MenuState.SELECT_ACTION
-        markup = inline_menu.render()
-        await query.edit_message_text("Pick an option", reply_markup=markup)
-    elif inline_menu.state == MenuState.SELECT_ACTION:
-        if data == CallbackKey.GO_BACK:
-            inline_menu.state = MenuState.SELECT_CHAT
-            user_id = update.effective_user.id
-            chat_data = await fetch_chat_data(user_id, context)
-            if not chat_data:
-                await query.edit_message_text("You are not an administrator in any known chats.")
-                return
-            await query.edit_message_text("Choose a chat:", reply_markup=inline_menu.render(chat_data))
-        elif data == CallbackKey.SCHEDULE:
-            await query.edit_message_text("You picked SCHEDULE")
-        elif data == CallbackKey.ENABLE_REPLY:
-            await query.edit_message_text("You picked ENABLE_REPLY")
-        elif data == CallbackKey.POST_NOW:
-            await query.edit_message_text("You picked POST_NOW")
-
-    context.drop_callback_data(query)
+    await menu.handle(update, context)
 
 
 def run_bot(token: str):

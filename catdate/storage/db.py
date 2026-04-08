@@ -5,6 +5,7 @@ _conn: sqlite3.Connection | None = None
 def init():
     query = """CREATE TABLE IF NOT EXISTS user (id INTEGER PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS chat (id INTEGER PRIMARY KEY, type TEXT);
+CREATE TABLE IF NOT EXISTS conversation (chat_id INTEGER PRIMARY KEY, menu_state INTEGER, menu_chat_id INTEGER);
 CREATE TABLE IF NOT EXISTS user_chat (user_id INTEGER NOT NULL, chat_id INTEGER NOT NULL, PRIMARY KEY (user_id, chat_id));"""
 
     cursor = connect().cursor()
