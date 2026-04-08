@@ -59,14 +59,9 @@ class Menu:
         if update.message is None:
             return
 
-        user_id = update.effective_user.id
-
         conversation_repository.save_menu_state(update.effective_chat.id, self.state, self.chat_id)
-        chat_data = await fetch_chat_data(user_id, context)
-        if chat_data:
-            await update.message.reply_text("Choose a chat:", reply_markup=self.render(chat_data))
-        else:
-            await update.message.reply_text("You are not an administrator in any known chats.")
+        text, markup = await self.handle_chat_menu(update, context)
+        await update.message.reply_text(text, reply_markup=markup)
 
     async def handle(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
@@ -84,9 +79,15 @@ class Menu:
             conversation_repository.save_menu_state(update.effective_chat.id, self.state, self.chat_id)
             await query.edit_message_text("Pick an option", reply_markup=self.render())
         elif self.state == MenuState.SELECT_ACTION:
-            await self._callbacks[data](self, update, context)
+            text, markup = await self._callbacks[data](self, update, context)
+            await query.edit_message_text(text, reply_markup=markup)
 
-        context.drop_callback_data(query)
+    async def handle_chat_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        chat_data = await fetch_chat_data(update.effective_user.id, context)
+        if chat_data:
+            return "Choose a chat:", self.render(chat_data)
+        else:
+            return "You are not an administrator in any known chats.", None
 
     async def handle_go_back(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
@@ -97,29 +98,25 @@ class Menu:
 
         self.state = MenuState.SELECT_CHAT
         conversation_repository.save_menu_state(update.effective_chat.id, self.state, self.chat_id)
-        chat_data = await fetch_chat_data(update.effective_user.id, context)
-        if chat_data:
-            await query.edit_message_text("Choose a chat:", reply_markup=self.render(chat_data))
-        else:
-            await query.edit_message_text("You are not an administrator in any known chats.")
+        return await self.handle_chat_menu(update, context)
 
     async def handle_schedule(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
         if query is None:
             return
-        await query.edit_message_text("You picked SCHEDULE")
+        return "You picked SCHEDULE", None
 
     async def handle_toggle_reply(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
         if query is None:
             return
-        await query.edit_message_text("You picked ENABLE_REPLY")
+        return "You picked ENABLE_REPLY", None
 
     async def handle_post_now(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
         if query is None:
             return
-        await query.edit_message_text("You picked POST_NOW")
+        return "You picked POST_NOW", None
 
     _callbacks: dict[str, Callable[[Menu, Update, ContextTypes.DEFAULT_TYPE]]] = {
         CallbackKey.GO_BACK: handle_go_back,
